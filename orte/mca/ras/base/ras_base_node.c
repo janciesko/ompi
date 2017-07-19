@@ -97,7 +97,7 @@ int orte_ras_base_node_insert(opal_list_t* nodes, orte_job_t *jdata)
 
     /* get the hnp node's info */
     hnp_node = (orte_node_t*)opal_pointer_array_get_item(orte_node_pool, 0);
-#if SLURM_CRAY_ENV
+
     /* if we are in a Cray-SLURM environment, then we cannot
      * launch procs local to the HNP. The problem
      * is the MPI processes launched on the head node (where the
@@ -122,7 +122,6 @@ int orte_ras_base_node_insert(opal_list_t* nodes, orte_job_t *jdata)
             ORTE_SET_MAPPING_DIRECTIVE(orte_rmaps_base.mapping, ORTE_MAPPING_NO_USE_LOCAL);
         }
     }
-#endif
 
 
     /* cycle through the list */
