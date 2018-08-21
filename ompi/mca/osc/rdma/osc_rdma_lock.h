@@ -91,6 +91,7 @@ static inline int ompi_osc_rdma_btl_fop (ompi_osc_rdma_module_t *module, struct 
         while (!pending_op->op_complete) {
             ompi_osc_rdma_progress (module);
         }
+        OBJ_RELEASE(pending_op);
     }
 
     OBJ_RELEASE(pending_op);
