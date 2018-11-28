@@ -39,6 +39,7 @@
 #include "opal/memoryhooks/memory.h"
 #include "opal/runtime/opal.h"
 #include "opal/constants.h"
+#include "opal/frameworks.h"
 #include "opal/threads/tsd.h"
 #include "opal/runtime/opal_cr.h"
 #include "opal/runtime/opal_progress.h"
@@ -150,6 +151,7 @@ int opal_finalize_util (void)
 
     opal_finalize_cleanup_domain (&opal_init_util_domain);
     OBJ_DESTRUCT(&opal_init_util_domain);
+    opal_mutex_unlock (&opal_finalize_cleanup_fns_lock);
 
     /* finalize the class/object system */
     opal_class_finalize();
@@ -177,24 +179,4 @@ int opal_finalize(void)
     opal_finalize_util();
 
     return OPAL_SUCCESS;
-}
-
-static bool fork_warning_issued = false;
-static bool atfork_called = false;
-
-static void warn_fork_cb(void)
-{
-    if (opal_initialized && !fork_warning_issued) {
-        opal_show_help("help-opal-runtime.txt", "opal_init:warn-fork", true,
-                       OPAL_NAME_PRINT(OPAL_PROC_MY_NAME), getpid());
-        fork_warning_issued = true;
-    }
-}
-
-void opal_warn_fork(void)
-{
-    if (opal_warn_on_fork && !atfork_called) {
-        pthread_atfork(warn_fork_cb, NULL, NULL);
-        atfork_called = true;
-    }
 }

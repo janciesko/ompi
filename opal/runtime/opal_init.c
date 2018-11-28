@@ -15,14 +15,14 @@
  * Copyright (c) 2009      Oak Ridge National Labs.  All rights reserved.
  * Copyright (c) 2010-2015 Los Alamos National Security, LLC.
  *                         All rights reserved.
- * Copyright (c) 2013-2019 Intel, Inc.  All rights reserved.
+ * Copyright (c) 2013-2018 Intel, Inc. All rights reserved.
  * Copyright (c) 2015-2017 Research Organization for Information Science
  *                         and Technology (RIST). All rights reserved.
  * Copyright (c) 2017      Amazon.com, Inc. or its affiliates.
  *                         All Rights reserved.
  * Copyright (c) 2018      Mellanox Technologies, Inc.
  *                         All rights reserved.
- * Copyright (c) 2018-2019 Triad National Security, LLC. All rights
+ * Copyright (c) 2018      Triad National Security, LLC. All rights
  *                         reserved.
  * $COPYRIGHT$
  *
@@ -61,7 +61,9 @@
 #include "opal/mca/if/base/base.h"
 #include "opal/dss/dss.h"
 #include "opal/mca/shmem/base/base.h"
+#if OPAL_ENABLE_FT_CR    == 1
 #include "opal/mca/compress/base/base.h"
+#endif
 #include "opal/threads/threads.h"
 #include "opal/threads/tsd.h"
 
@@ -386,6 +388,9 @@ opal_init_util(int* pargc, char*** pargv)
 
     opal_init_called = true;
 
+    /* register for */
+    opal_finalize_register_cleanup_arg (mca_base_framework_close_list, opal_init_util_frameworks);
+
     /* set the nodename right away so anyone who needs it has it. Note
      * that we don't bother with fqdn and prefix issues here - we let
      * the RTE later replace this with a modified name if the user
@@ -506,9 +511,6 @@ opal_init_util(int* pargc, char*** pargv)
         return ret;
     }
 
-    /* register for */
-    opal_finalize_register_cleanup_arg (mca_base_framework_close_list, opal_init_util_frameworks);
-
     OPAL_TIMING_ENV_NEXT(otmng, "opal_if_init");
 
     return OPAL_SUCCESS;
@@ -522,8 +524,7 @@ opal_init_util(int* pargc, char*** pargv)
 static mca_base_framework_t *opal_init_frameworks[] = {
     &opal_hwloc_base_framework, &opal_memcpy_base_framework, &opal_memchecker_base_framework,
     &opal_backtrace_base_framework, &opal_timer_base_framework, &opal_event_base_framework,
-    &opal_shmem_base_framework, &opal_reachable_base_framework, &opal_compress_base_framework,
-    NULL,
+    &opal_shmem_base_framework, &opal_reachable_base_framework, NULL,
 };
 
 int
@@ -582,11 +583,6 @@ opal_init(int* pargc, char*** pargv)
     /* Intitialize reachable framework */
     if (OPAL_SUCCESS != (ret = opal_reachable_base_select())) {
         return opal_init_error ("opal_reachable_base_select", ret);
-    }
-
-    /* Intitialize compress framework */
-    if (OPAL_SUCCESS != (ret = opal_compress_base_select())) {
-        return opal_init_error ("opal_compress_base_select", ret);
     }
 
     return OPAL_SUCCESS;
