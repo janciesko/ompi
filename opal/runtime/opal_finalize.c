@@ -39,7 +39,6 @@
 #include "opal/memoryhooks/memory.h"
 #include "opal/runtime/opal.h"
 #include "opal/constants.h"
-#include "opal/frameworks.h"
 #include "opal/threads/tsd.h"
 #include "opal/runtime/opal_cr.h"
 #include "opal/runtime/opal_progress.h"
@@ -113,6 +112,9 @@ void opal_finalize_append_cleanup (opal_cleanup_fn_t cleanup_fn, const char *fn_
     (void) fn_name;
 #endif
 
+    fprintf (stderr, "OPAL finalize append cleanup: fn: %p, name: %s, domain: %s\n", (void *) cleanup_fn,
+             fn_name, current_finalize_domain->domain_name);
+
     opal_mutex_lock (&opal_finalize_cleanup_fns_lock);
     opal_list_append (&current_finalize_domain->super, &cleanup_item->super);
     opal_mutex_unlock (&opal_finalize_cleanup_fns_lock);
@@ -151,7 +153,10 @@ int opal_finalize_util (void)
 
     opal_finalize_cleanup_domain (&opal_init_util_domain);
     OBJ_DESTRUCT(&opal_init_util_domain);
+<<<<<<< HEAD
     opal_mutex_unlock (&opal_finalize_cleanup_fns_lock);
+=======
+>>>>>>> Fixup opal cleanup
 
     /* finalize the class/object system */
     opal_class_finalize();
