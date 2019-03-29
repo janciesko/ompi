@@ -128,10 +128,10 @@ int ompi_comm_set ( ompi_communicator_t **ncomm,
     }
 
     if (NULL != req) {
-        rc = ompi_request_wait( &req, MPI_STATUS_IGNORE);
+        ompi_request_wait( &req, MPI_STATUS_IGNORE);
     }
 
-    return rc;
+    return OMPI_SUCCESS;
 }
 
 static int ompi_comm_set_simple (ompi_communicator_t **ncomm, ompi_errhandler_t *errhandler,
@@ -1030,7 +1030,6 @@ int ompi_comm_dup_with_info ( ompi_communicator_t * comm, opal_info_t *info, omp
     /* Determine context id. It is identical to f_2_c_handle */
     rc = ompi_comm_nextcid (newcomp, comm, NULL, NULL, NULL, false, mode);
     if ( OMPI_SUCCESS != rc ) {
-        OBJ_RELEASE(newcomp);
         return rc;
     }
 
@@ -1048,7 +1047,6 @@ int ompi_comm_dup_with_info ( ompi_communicator_t * comm, opal_info_t *info, omp
     /* activate communicator and init coll-module */
     rc = ompi_comm_activate (&newcomp, comm, NULL, NULL, NULL, false, mode);
     if ( OMPI_SUCCESS != rc ) {
-        OBJ_RELEASE(newcomp);
         return rc;
     }
 
@@ -1165,7 +1163,6 @@ static int ompi_comm_idup_getcid (ompi_comm_request_t *request)
                                NULL, false, mode, subreq);
     if (OMPI_SUCCESS != rc) {
         ompi_comm_request_return (request);
-        OBJ_RELEASE(context->newcomp);
         return rc;
     }
 
@@ -1194,7 +1191,6 @@ static int ompi_comm_idup_with_info_activate (ompi_comm_request_t *request)
     /* activate communicator and init coll-module */
     rc = ompi_comm_activate_nb (&context->newcomp, context->comm, NULL, NULL, NULL, false, mode, subreq);
     if ( OMPI_SUCCESS != rc ) {
-        OBJ_RELEASE(context->newcomp);
         return rc;
     }
 
@@ -1237,7 +1233,6 @@ int ompi_comm_create_group (ompi_communicator_t *comm, ompi_group_t *group, int 
     /* Determine context id. It is identical to f_2_c_handle */
     rc = ompi_comm_nextcid (newcomp, comm, NULL, &tag, NULL, false, mode);
     if ( OMPI_SUCCESS != rc ) {
-        OBJ_RELEASE(newcomp);
         return rc;
     }
 
@@ -1248,7 +1243,6 @@ int ompi_comm_create_group (ompi_communicator_t *comm, ompi_group_t *group, int 
     /* activate communicator and init coll-module */
     rc = ompi_comm_activate (&newcomp, comm, NULL, &tag, NULL, false, mode);
     if ( OMPI_SUCCESS != rc ) {
-        OBJ_RELEASE(newcomp);
         return rc;
     }
 
@@ -1884,7 +1878,6 @@ int ompi_comm_free( ompi_communicator_t **comm )
 /**********************************************************************/
 /**********************************************************************/
 /**********************************************************************/
-
 /**
  * This is a short-hand routine used in intercomm_create.
  * The routine makes sure, that all processes have afterwards
@@ -1893,8 +1886,9 @@ int ompi_comm_free( ompi_communicator_t **comm )
 static ompi_proc_t **ompi_comm_get_rprocs (ompi_communicator_t *local_comm, ompi_communicator_t *bridge_comm,
                                            int local_leader, int remote_leader, int tag, int rsize)
 {
+
     MPI_Request req;
-    int rc = OMPI_SUCCESS;
+    int rc;
     int local_rank, local_size;
     ompi_proc_t **rprocs=NULL;
     int32_t size_len;
@@ -1911,7 +1905,7 @@ static ompi_proc_t **ompi_comm_get_rprocs (ompi_communicator_t *local_comm, ompi
     if (local_rank == local_leader) {
         sbuf = OBJ_NEW(opal_buffer_t);
         if (NULL == sbuf) {
-            rc = OMPI_ERR_OUT_OF_RESOURCE;
+            rc = OMPI_ERROR;
             goto err_exit;
         }
         if(OMPI_GROUP_IS_DENSE(local_comm->c_local_group)) {
@@ -1963,7 +1957,6 @@ static ompi_proc_t **ompi_comm_get_rprocs (ompi_communicator_t *local_comm, ompi
     /* Allocate temporary buffer */
     recvbuf = (char *)malloc(rlen);
     if ( NULL == recvbuf ) {
-        rc = OMPI_ERR_OUT_OF_RESOURCE;
         goto err_exit;
     }
 
@@ -1995,7 +1988,7 @@ static ompi_proc_t **ompi_comm_get_rprocs (ompi_communicator_t *local_comm, ompi
 
     rbuf = OBJ_NEW(opal_buffer_t);
     if (NULL == rbuf) {
-        rc = OMPI_ERR_OUT_OF_RESOURCE;
+        rc = OMPI_ERROR;
         goto err_exit;
     }
 
@@ -2003,12 +1996,11 @@ static ompi_proc_t **ompi_comm_get_rprocs (ompi_communicator_t *local_comm, ompi
         goto err_exit;
     }
 
-    /* decode the names into a proc-list -- will never add a new proc
-       as the result of this operation, so no need to get the newprocs
-       list or call PML add_procs(). */
+    /* decode the names into a proc-list */
     rc = ompi_proc_unpack(rbuf, rsize, &rprocs, NULL, NULL);
     OBJ_RELEASE(rbuf);
     if (OMPI_SUCCESS != rc) {
+        OMPI_ERROR_LOG(rc);
         goto err_exit;
     }
 
@@ -2028,6 +2020,7 @@ static ompi_proc_t **ompi_comm_get_rprocs (ompi_communicator_t *local_comm, ompi
 
     /* And now add the information into the database */
     if (OMPI_SUCCESS != (rc = MCA_PML_CALL(add_procs(rprocs, rsize)))) {
+        OMPI_ERROR_LOG(rc);
         goto err_exit;
     }
 
@@ -2035,7 +2028,6 @@ static ompi_proc_t **ompi_comm_get_rprocs (ompi_communicator_t *local_comm, ompi
     /* rprocs isn't freed unless we have an error,
        since it is used in the communicator */
     if ( OMPI_SUCCESS != rc ) {
-        OMPI_ERROR_LOG(rc);
         opal_output(0, "%d: Error in ompi_get_rprocs\n", local_rank);
         if ( NULL != rprocs ) {
             free ( rprocs );
@@ -2056,8 +2048,7 @@ static ompi_proc_t **ompi_comm_get_rprocs (ompi_communicator_t *local_comm, ompi
         free ( sendbuf );
     }
 
-    *prprocs = rprocs;
-    return rc;
+    return rprocs;
 }
 /**********************************************************************/
 /**********************************************************************/
@@ -2229,10 +2220,6 @@ int ompi_comm_enable(ompi_communicator_t *old_comm,
                      ompi_proc_t** topo_procs)
 {
     int ret = OMPI_SUCCESS;
-
-    /* set the rank information before calling nextcid */
-    new_comm->c_local_group->grp_my_rank = new_rank;
-    new_comm->c_my_rank = new_rank;
 
     /* Determine context id. It is identical to f_2_c_handle */
     ret = ompi_comm_nextcid (new_comm, old_comm, NULL, NULL, NULL, false,
