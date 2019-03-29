@@ -228,9 +228,11 @@ mca_btl_ugni_alloc(struct mca_btl_base_module_t *btl,
     /* do not allocate a fragment unless the wait list is relatively small. this
      * reduces the potential for resource exhaustion. note the wait list only exists
      * because we have no way to notify the sender that credits are available. */
+#if 0
     if (OPAL_UNLIKELY(opal_list_get_size (&endpoint->frag_wait_list) > 32)) {
         return NULL;
     }
+#endif
 
     if (size <= mca_btl_ugni_component.smsg_max_data) {
         frag = mca_btl_ugni_frag_alloc_smsg (endpoint);
@@ -289,9 +291,11 @@ mca_btl_ugni_prepare_src (struct mca_btl_base_module_t *btl,
     /* do not allocate a fragment unless the wait list is relatively small. this
      * reduces the potential for resource exhaustion. note the wait list only exists
      * because we have no way to notify the sender that credits are available. */
+#if 0
     if (OPAL_UNLIKELY(opal_list_get_size (&endpoint->frag_wait_list) > 32)) {
         return NULL;
     }
+#endif
 
     return mca_btl_ugni_prepare_src_send (btl, endpoint, convertor,
                                           order, reserve, size, flags);

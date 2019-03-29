@@ -119,12 +119,14 @@ int mca_btl_ugni_sendi (struct mca_btl_base_module_t *btl,
     size_t packed_size = payload_size;
     int rc;
 
+#if 0
     if (OPAL_UNLIKELY(opal_list_get_size (&endpoint->frag_wait_list))) {
         if (NULL != descriptor) {
             *descriptor = NULL;
         }
         return OPAL_ERR_OUT_OF_RESOURCE;
     }
+#endif
 
     do {
         BTL_VERBOSE(("btl/ugni isend sending fragment from %d -> %d. length = %" PRIu64

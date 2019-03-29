@@ -252,10 +252,17 @@ static inline void mca_pml_ob1_add_to_pending (ompi_proc_t *proc, mca_bml_base_b
     mca_pml_ob1_pckt_pending_t *pckt;
 
     MCA_PML_OB1_PCKT_PENDING_ALLOC(pckt);
-    assert (sizeof (pckt->hdr) <= hdr_size);
+#if 0
+    if (!(sizeof (pckt->hdr)<=hdr_size)) {
+        fprintf(stderr, "pckt->hdr == %ld hdr_size = %ld\n", sizeof(pckt->hdr), hdr_size);
+    }
+#endif
     pckt->proc = proc;
+    pckt->bml_btl = bml_btl;
     pckt->order = order;
+    memcpy((void *)&pckt->hdr, (void *)hdr, hdr_size);
     pckt->hdr_size = hdr_size;
+    fprintf(stderr, "in add to pending adding pckt %d hdr %p size %ld\n", pckt, (void *)&pckt->hdr, hdr_size);
     OPAL_THREAD_SCOPED_LOCK(&mca_pml_ob1.lock, {
             opal_list_append(&mca_pml_ob1.pckt_pending, &pckt->super.super);
         });

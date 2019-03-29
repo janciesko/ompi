@@ -760,16 +760,15 @@ int mca_pml_ob1_send_request_start_rdma( mca_pml_ob1_send_request_t* sendreq,
     sendreq->rdma_frag = frag;
 
     /* build match header */
-    hdr = (mca_pml_ob1_hdr_t *) des->des_segments->seg_addr.pval;
+    hdr = (mca_pml_ob1_rget_hdr_t *) des->des_segments->seg_addr.pval;
     if (MCA_PML_OB1_PROC_REQUIRES_EXT_MATCH(sendreq->ob1_proc)) {
+        fprintf(stderr, "Hey think I need to take this special path\n");
         hdr_rget = &hdr->hdr_ext_rget.hdr_rget;
         mca_pml_ob1_cid_hdr_prepare (&hdr->hdr_cid, sendreq->req_send.req_base.req_comm);
-    } else {
-        hdr_rget = &hdr->hdr_ext_rget.hdr_rget;
     }
 
     /* TODO -- Add support for multiple segments for get */
-    mca_pml_ob1_rget_hdr_prepare (hdr_rget, MCA_PML_OB1_HDR_FLAGS_CONTIG | MCA_PML_OB1_HDR_FLAGS_PIN,
+    mca_pml_ob1_rget_hdr_prepare (hdr, MCA_PML_OB1_HDR_FLAGS_CONTIG | MCA_PML_OB1_HDR_FLAGS_PIN,
                                   sendreq->ob1_proc->comm_index,
                                   sendreq->req_send.req_base.req_comm->c_my_rank,
                                   sendreq->req_send.req_base.req_tag,

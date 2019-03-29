@@ -694,7 +694,7 @@ int mca_pml_ob1_send_control_btl (mca_bml_base_btl_t *bml_btl, int order, mca_pm
                                   bool add_to_pending)
 {
     int des_flags = MCA_BTL_DES_FLAGS_PRIORITY | MCA_BTL_DES_FLAGS_BTL_OWNERSHIP | MCA_BTL_DES_FLAGS_SIGNAL;
-    mca_btl_base_descriptor_t *des;
+    mca_btl_base_descriptor_t *des = NULL;
     int rc;
 
     if (NULL != bml_btl->btl->btl_sendi) {
@@ -702,12 +702,16 @@ int mca_pml_ob1_send_control_btl (mca_bml_base_btl_t *bml_btl, int order, mca_pm
         if (OPAL_LIKELY(OPAL_SUCCESS == rc)) {
             return rc;
         }
+        fprintf(stderr, "tried to send hdr %p hdr_size %d type %d but sendi returned %d\n",
+                        hdr, hdr_size, hdr->hdr_common.hdr_type, rc);
     } else {
         (void) mca_bml_base_alloc (bml_btl, &des, order, hdr_size, des_flags);
     }
 
     if (OPAL_UNLIKELY(NULL == des)) {
         if (add_to_pending) {
+            fprintf(stderr, " %d  adding hdr %p hdr_size %ld type %d to pending\n", __LINE__, hdr,
+                              hdr->hdr_common.hdr_type, hdr_size);
             mca_pml_ob1_add_to_pending (NULL, bml_btl, order, hdr, hdr_size);
         }
         return OMPI_ERR_OUT_OF_RESOURCE;
@@ -729,7 +733,10 @@ int mca_pml_ob1_send_control_btl (mca_bml_base_btl_t *bml_btl, int order, mca_pm
 
     mca_bml_base_free(bml_btl, des);
     if (add_to_pending) {
+        fprintf(stderr, " %d  adding hdr %p hdr_size %ld to pending\n", __LINE__, hdr, hdr_size);
         mca_pml_ob1_add_to_pending (NULL, bml_btl, order, hdr, hdr_size);
+    } else {
+        fprintf(stderr, "mca_bml_base_send failed %d\n", rc);
     }
 
     return OMPI_ERR_OUT_OF_RESOURCE;
@@ -753,6 +760,7 @@ int mca_pml_ob1_send_control_any (ompi_proc_t *proc, int order, mca_pml_ob1_hdr_
     }
 
     if (add_to_pending) {
+        fprintf(stderr, " %d  adding hdr %p hdr_size %ld to pending\n", __LINE__, hdr, hdr_size);
         mca_pml_ob1_add_to_pending (proc, NULL, order, hdr, hdr_size);
     }
 
@@ -805,8 +813,12 @@ void mca_pml_ob1_process_pending_packets(mca_bml_base_btl_t* bml_btl)
 
         if (pckt->bml_btl) {
             rc = mca_pml_ob1_send_control_btl (pckt->bml_btl, pckt->order, &pckt->hdr, pckt->hdr_size, false);
+            fprintf(stderr, "progressing btl pckt %p hdr %p hdr_size %ld rc %d\n", 
+                             pckt, &pckt->hdr, pckt->hdr_size, rc);
         } else {
             rc = mca_pml_ob1_send_control_any (pckt->proc, pckt->order, &pckt->hdr, pckt->hdr_size, false);
+            fprintf(stderr, "progressing any pckt %p hdr %p hdr_size %ld rc %d\n", 
+                             pckt, &pckt->hdr, pckt->hdr_size, rc);
         }
 
         if (OPAL_SUCCESS != rc) {
