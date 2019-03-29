@@ -226,19 +226,12 @@ static void opal_datatype_finalize (void)
     /* As they are statically allocated they cannot be released. But we
      * can call OBJ_DESTRUCT, just to free all internally allocated ressources.
      */
-<<<<<<< HEAD
-    /* clear all master convertors */
-    opal_convertor_destroy_masters();
 
-    opal_output_close (opal_datatype_dfd);
-    opal_datatype_dfd = -1;
-=======
     opal_output_close (opal_datatype_dfd);
     opal_datatype_dfd = -1;
 
     /* clear all master convertors */
     opal_convertor_destroy_masters();
->>>>>>> opal: clean up init/finalize
 }
 
 int32_t opal_datatype_init( void )

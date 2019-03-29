@@ -150,10 +150,6 @@ int opal_finalize_util (void)
 
     opal_finalize_cleanup_domain (&opal_init_util_domain);
     OBJ_DESTRUCT(&opal_init_util_domain);
-<<<<<<< HEAD
-    opal_mutex_unlock (&opal_finalize_cleanup_fns_lock);
-=======
->>>>>>> Fixup opal cleanup
 
     /* finalize the class/object system */
     opal_class_finalize();

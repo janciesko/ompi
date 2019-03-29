@@ -21,6 +21,8 @@
  * Copyright (c) 2018      Amazon.com, Inc. or its affiliates.  All Rights reserved.
  * Copyright (c) 2019      Research Organization for Information Science
  *                         and Technology (RIST).  All rights reserved.
+ * Copyright (c) 2019      Triad National Security, LLC. All rights
+ *                         reserved.
  * $COPYRIGHT$
  *
  * Additional copyrights may follow
@@ -586,24 +588,16 @@ static int allocate_state_shared (ompi_osc_rdma_module_t *module, void **base, s
             }
         }
 
-        /* allocate the shared memory segment */
-        ret = opal_asprintf (&data_file, "%s" OPAL_PATH_SEP "osc_rdma.%s.%x.%s",
-                        mca_osc_rdma_component.backing_directory, ompi_process_info.nodename,
-                        OMPI_PROC_MY_NAME->jobid, ompi_comm_print_cid(module->comm));
-        if (0 > ret) {
-            ret = OMPI_ERR_OUT_OF_RESOURCE;
-            break;
-        }
-
         if (0 == local_rank) {
-            /* allocate the shared memory segment */
-            ret = opal_asprintf (&data_file, "%s" OPAL_PATH_SEP "osc_rdma.%s.%x.%d",
+
+             /* allocate the shared memory segment */
+             ret = opal_asprintf (&data_file, "%s" OPAL_PATH_SEP "osc_rdma.%s.%x.%s",
                             mca_osc_rdma_component.backing_directory, ompi_process_info.nodename,
-                            OMPI_PROC_MY_NAME->jobid, ompi_comm_get_cid(module->comm));
-            if (0 > ret) {
+                            OMPI_PROC_MY_NAME->jobid, ompi_comm_print_cid(module->comm));
+             if (0 > ret) {
                 ret = OMPI_ERR_OUT_OF_RESOURCE;
                 break;
-            }
+             }
 
             /* allocate enough space for the state + data for all local ranks */
             ret = opal_shmem_segment_create (&module->seg_ds, data_file, total_size);

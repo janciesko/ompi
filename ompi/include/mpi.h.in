@@ -402,7 +402,6 @@ typedef int (MPI_Grequest_cancel_function)(void *, int);
 
 typedef unsigned long MPI_Flags;
 
-#if !OMPI_OMIT_MPI1_COMPAT_DECLS
 /*
  * Deprecated typedefs.  Usage is discouraged, as these may be deleted
  * in future versions of the MPI Standard.
