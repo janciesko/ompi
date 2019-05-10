@@ -461,6 +461,7 @@ static int ompi_mpi_instance_init_common (void)
     if (mca_pml_base_requires_world ()) {
         /* need to set up comm world for this instance -- XXX -- FIXME -- probably won't always
          * be the case. */
+        fprintf(stderr, "calling mpi3 init\n");
         if (OMPI_SUCCESS != (ret = ompi_comm_init_mpi3 ())) {
             return ompi_instance_print_error ("ompi_comm_init_mpi3 () failed", ret);
         }
