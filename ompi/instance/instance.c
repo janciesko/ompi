@@ -288,15 +288,24 @@ static int ompi_mpi_instance_init_common (void)
     opal_list_t info;
     opal_value_t *kv;
     int ret;
+    struct timespec tp_before, tp_after, start, end;
+    long duration = 0;
 
+    clock_gettime(CLOCK_REALTIME, &start);
     ret = ompi_mpi_instance_retain ();
     if (OPAL_UNLIKELY(OMPI_SUCCESS != ret)) {
         return ret;
     }
 
+    clock_gettime(CLOCK_REALTIME, &tp_before);
     OBJ_CONSTRUCT(&ompi_instance_common_domain, opal_finalize_domain_t);
     opal_finalize_domain_init (&ompi_instance_common_domain, "ompi_mpi_instance_init_common");
     opal_finalize_set_domain (&ompi_instance_common_domain);
+    clock_gettime(CLOCK_REALTIME, &tp_after);
+
+    duration = (tp_after.tv_sec - tp_before.tv_sec) * 1e3;
+    duration += (tp_after.tv_nsec - tp_before.tv_nsec) / 1e6;
+
 
     if (OPAL_SUCCESS != (ret = opal_arch_set_fortran_logical_size(sizeof(ompi_fortran_logical_t)))) {
         return ompi_instance_print_error ("ompi_mpi_init: opal_arch_set_fortran_logical_size failed", ret);
@@ -327,8 +336,10 @@ static int ompi_mpi_instance_init_common (void)
            side-effects with launching RTE tools... */
         mca_base_var_set_value(ret, allvalue, 4, MCA_BASE_VAR_SOURCE_DEFAULT, NULL);
     }
+    fprintf(stderr, "time in ojb construct is %ld\n", duration);
 
     /* open the ompi hook framework */
+    clock_gettime(CLOCK_REALTIME, &tp_before);
     for (int i = 0 ; ompi_framework_dependencies[i] ; ++i) {
         ret = mca_base_framework_open (ompi_framework_dependencies[i], 0);
         if (OPAL_UNLIKELY(OPAL_SUCCESS != ret)) {
@@ -339,12 +350,26 @@ static int ompi_mpi_instance_init_common (void)
             return ompi_instance_print_error (error_msg, ret);
         }
     }
+    clock_gettime(CLOCK_REALTIME, &tp_after);
 
+    duration = (tp_after.tv_sec - tp_before.tv_sec) * 1e3;
+    duration += (tp_after.tv_nsec - tp_before.tv_nsec) / 1e6;
+    fprintf(stderr, "time to opten ompi frameworks %ld\n", duration);
+
+
+    clock_gettime(CLOCK_REALTIME, &tp_before);
     /* Setup RTE */
     if (OMPI_SUCCESS != (ret = ompi_rte_init (NULL, NULL))) {
         return ompi_instance_print_error ("ompi_mpi_init: ompi_rte_init failed", ret);
     }
+    clock_gettime(CLOCK_REALTIME, &tp_after);
 
+    duration = (tp_after.tv_sec - tp_before.tv_sec) * 1e3;
+    duration += (tp_after.tv_nsec - tp_before.tv_nsec) / 1e6;
+    fprintf(stderr, "time in ompi_rte_init is %ld\n", duration);
+
+
+    clock_gettime(CLOCK_REALTIME, &tp_before);
     ompi_rte_initialized = true;
 
     /* Register the default errhandler callback  */
@@ -365,23 +390,34 @@ static int ompi_mpi_instance_init_common (void)
                                  ompi_errhandler_registration_callback,
                                  (void*)&errtrk);
     OMPI_LAZY_WAIT_FOR_COMPLETION(errtrk.active);
+    clock_gettime(CLOCK_REALTIME, &tp_after);
+
+    duration = (tp_after.tv_sec - tp_before.tv_sec) * 1e3;
+    duration += (tp_after.tv_nsec - tp_before.tv_nsec) / 1e6;
 
     OPAL_LIST_DESTRUCT(&info);
     if (OPAL_SUCCESS != errtrk.status) {
         return ompi_instance_print_error ("Error handler registration", errtrk.status);
     }
+    fprintf(stderr, "time in register_evhandler is %ld\n", duration);
 
     /* declare our presence for interlib coordination, and
      * register for callbacks when other libs declare. XXXXXX -- TODO -- figure out how
      * to specify the thread level when different instances may request different levels. */
+    clock_gettime(CLOCK_REALTIME, &tp_before);
     if (OMPI_SUCCESS != (ret = ompi_interlib_declare(MPI_THREAD_MULTIPLE, OMPI_IDENT_STRING))) {
         return ompi_instance_print_error ("ompi_interlib_declare", ret);
     }
+    clock_gettime(CLOCK_REALTIME, &tp_after);
+    duration = (tp_after.tv_sec - tp_before.tv_sec) * 1e3;
+    duration += (tp_after.tv_nsec - tp_before.tv_nsec) / 1e6;
+    fprintf(stderr, "time in interlib declar %ld\n", duration);
 
     /* initialize datatypes. This step should be done early as it will
      * create the local convertor and local arch used in the proc
      * init.
      */
+    clock_gettime(CLOCK_REALTIME, &tp_before);
     if (OMPI_SUCCESS != (ret = ompi_datatype_init())) {
         return ompi_instance_print_error ("ompi_datatype_init() failed", ret);
     }
@@ -390,6 +426,7 @@ static int ompi_mpi_instance_init_common (void)
     if (OMPI_SUCCESS != (ret = ompi_proc_init())) {
         return ompi_instance_print_error ("mca_proc_init() failed", ret);
     }
+
 
     /* Initialize the op framework. This has to be done *after*
        ddt_init, but befor mca_coll_base_open, since some collective
@@ -414,13 +451,23 @@ static int ompi_mpi_instance_init_common (void)
     if (OMPI_SUCCESS != (ret = mca_pml_base_select (OPAL_ENABLE_PROGRESS_THREADS, ompi_mpi_thread_multiple))) {
         return ompi_instance_print_error ("mca_pml_base_select() failed", ret);
     }
+        clock_gettime(CLOCK_REALTIME, &tp_after);
+        duration = (tp_after.tv_sec - tp_before.tv_sec) * 1e3;
+        duration += (tp_after.tv_nsec - tp_before.tv_nsec) / 1e6;
+        fprintf(stderr, "time in pml base select %ld\n", duration);
 
+    clock_gettime(CLOCK_REALTIME, &tp_before);
     /* exchange connection info - this function may also act as a barrier
      * if data exchange is required. The modex occurs solely across procs
      * in our job. If a barrier is required, the "modex" function will
      * perform it internally */
     opal_pmix.commit ();
+        clock_gettime(CLOCK_REALTIME, &tp_after);
+        duration = (tp_after.tv_sec - tp_before.tv_sec) * 1e3;
+        duration += (tp_after.tv_nsec - tp_before.tv_nsec) / 1e6;
+        fprintf(stderr, "time in pmix commit %ld\n", duration);
 
+    clock_gettime(CLOCK_REALTIME, &tp_before);
     /* select buffered send allocator component to be used */
     if (OMPI_SUCCESS != (ret = mca_pml_base_bsend_init ())) {
         return ompi_instance_print_error ("mca_pml_base_bsend_init() failed", ret);
@@ -433,12 +480,17 @@ static int ompi_mpi_instance_init_common (void)
     if (OMPI_SUCCESS != (ret = ompi_osc_base_find_available (OPAL_ENABLE_PROGRESS_THREADS, ompi_mpi_thread_multiple))) {
         return ompi_instance_print_error ("ompi_osc_base_find_available() failed", ret);
     }
+        clock_gettime(CLOCK_REALTIME, &tp_after);
+        duration = (tp_after.tv_sec - tp_before.tv_sec) * 1e3;
+        duration += (tp_after.tv_nsec - tp_before.tv_nsec) / 1e6;
+        fprintf(stderr, "time in bsend init etc %ld\n", duration);
 
     /* io and topo components are not selected here -- see comment
        above about the io and topo frameworks being loaded lazily */
 
     /* Initialize each MPI handle subsystem */
     /* initialize requests */
+        clock_gettime(CLOCK_REALTIME, &tp_before);
     if (OMPI_SUCCESS != (ret = ompi_request_init ())) {
         return ompi_instance_print_error ("ompi_request_init() failed", ret);
     }
@@ -465,8 +517,13 @@ static int ompi_mpi_instance_init_common (void)
             return ompi_instance_print_error ("ompi_comm_init_mpi3 () failed", ret);
         }
     }
+        clock_gettime(CLOCK_REALTIME, &tp_after);
+        duration = (tp_after.tv_sec - tp_before.tv_sec) * 1e3;
+        duration += (tp_after.tv_nsec - tp_before.tv_nsec) / 1e6;
+        fprintf(stderr, "time in ompi_comm_init_mpi3 %ld\n", duration);
 
     /* initialize file handles */
+    clock_gettime(CLOCK_REALTIME, &tp_before);
     if (OMPI_SUCCESS != (ret = ompi_file_init ())) {
         return ompi_instance_print_error ("ompi_file_init() failed", ret);
     }
@@ -485,24 +542,43 @@ static int ompi_mpi_instance_init_common (void)
     if (OMPI_SUCCESS != (ret = ompi_dpm_init ())) {
         return ompi_instance_print_error ("ompi_dpm_init() failed", ret);
     }
+    clock_gettime(CLOCK_REALTIME, &tp_after);
+
+    duration = (tp_after.tv_sec - tp_before.tv_sec) * 1e3;
+    duration += (tp_after.tv_nsec - tp_before.tv_nsec) / 1e6;
+    fprintf(stderr, "time in dpminit is %ld\n", duration);
+
 
 
     /* identify the architectures of remote procs and setup
      * their datatype convertors, if required
      */
+    clock_gettime(CLOCK_REALTIME, &tp_before);
     if (OMPI_SUCCESS != (ret = ompi_proc_complete_init())) {
         return ompi_instance_print_error ("ompi_proc_complete_init failed", ret);
     }
+    clock_gettime(CLOCK_REALTIME, &tp_after);
+
+    duration = (tp_after.tv_sec - tp_before.tv_sec) * 1e3;
+    duration += (tp_after.tv_nsec - tp_before.tv_nsec) / 1e6;
+    fprintf(stderr, "time in ompi_proc complete init is %ld\n", duration);
+
 
     /* start PML/BTL's */
+    clock_gettime(CLOCK_REALTIME, &tp_before);
     ret = MCA_PML_CALL(enable(true));
     if( OMPI_SUCCESS != ret ) {
         return ompi_instance_print_error ("PML control failed", ret);
     }
+        clock_gettime(CLOCK_REALTIME, &tp_after);
+        duration = (tp_after.tv_sec - tp_before.tv_sec) * 1e3;
+        duration += (tp_after.tv_nsec - tp_before.tv_nsec) / 1e6;
+        fprintf(stderr, "time in pml enable %ld\n", duration);
 
     /* some btls/mtls require we call add_procs with all procs in the job.
      * since the btls/mtls have no visibility here it is up to the pml to
      * convey this requirement */
+    clock_gettime(CLOCK_REALTIME, &tp_before);
     if (mca_pml_base_requires_world ()) {
         if (NULL == (procs = ompi_proc_world (&nprocs))) {
             return ompi_instance_print_error ("ompi_proc_get_allocated () failed", ret);
@@ -514,10 +590,21 @@ static int ompi_mpi_instance_init_common (void)
             return ompi_instance_print_error ("ompi_proc_get_allocated () failed", ret);
         }
     }
+        clock_gettime(CLOCK_REALTIME, &tp_after);
+        duration = (tp_after.tv_sec - tp_before.tv_sec) * 1e3;
+        duration += (tp_after.tv_nsec - tp_before.tv_nsec) / 1e6;
+        fprintf(stderr, "time in ompi_proc_world %ld\n", duration);
 
     ompi_mpi_instance_append_finalize (ompi_mpi_instance_cleanup_pml);
 
+    clock_gettime(CLOCK_REALTIME, &tp_before);
     ret = MCA_PML_CALL(add_procs(procs, nprocs));
+    clock_gettime(CLOCK_REALTIME, &tp_after);
+
+    duration = (tp_after.tv_sec - tp_before.tv_sec) * 1e3;
+    duration += (tp_after.tv_nsec - tp_before.tv_nsec) / 1e6;
+    fprintf(stderr, "time in add procs %ld\n", duration);
+
     free(procs);
     /* If we got "unreachable", then print a specific error message.
        Otherwise, if we got some other failure, fall through to print
@@ -536,10 +623,16 @@ static int ompi_mpi_instance_init_common (void)
        e.g. hierarch, might create subcommunicators. The threadlevel
        requested by all processes is required in order to know
        which cid allocation algorithm can be used. */
+    clock_gettime(CLOCK_REALTIME, &tp_before);
     if (OMPI_SUCCESS != ( ret = ompi_comm_cid_init ())) {
         return ompi_instance_print_error ("ompi_mpi_init: ompi_comm_cid_init failed", ret);
     }
+        clock_gettime(CLOCK_REALTIME, &tp_after);
+        duration = (tp_after.tv_sec - tp_before.tv_sec) * 1e3;
+        duration += (tp_after.tv_nsec - tp_before.tv_nsec) / 1e6;
+        fprintf(stderr, "time in comp_comm_cid_init %ld\n", duration);
 
+    clock_gettime(CLOCK_REALTIME, &tp_before);
     /* Check whether we have been spawned or not.  We introduce that
        at the very end, since we need collectives, datatypes, ptls
        etc. up and running here.... */
@@ -570,7 +663,14 @@ static int ompi_mpi_instance_init_common (void)
     if (OMPI_SUCCESS != (ret = ompi_mpiext_init())) {
         return ompi_instance_print_error ("ompi_mpiext_init", ret);
     }
+    clock_gettime(CLOCK_REALTIME, &tp_after);
 
+    duration = (tp_after.tv_sec - tp_before.tv_sec) * 1e3;
+    duration += (tp_after.tv_nsec - tp_before.tv_nsec) / 1e6;
+    fprintf(stderr, "time in ompi_mpiext_initis %ld\n", duration);
+
+
+    clock_gettime(CLOCK_REALTIME, &tp_before);
     /* Initialize the registered datarep list to be empty */
     OBJ_CONSTRUCT(&ompi_registered_datareps, opal_list_t);
 
@@ -585,6 +685,16 @@ static int ompi_mpi_instance_init_common (void)
 
     OBJ_CONSTRUCT( &ompi_mpi_f90_complex_hashtable, opal_hash_table_t);
     opal_hash_table_init(&ompi_mpi_f90_complex_hashtable, FLT_MAX_10_EXP);
+    clock_gettime(CLOCK_REALTIME, &tp_after);
+
+    duration = (tp_after.tv_sec - tp_before.tv_sec) * 1e3;
+    duration += (tp_after.tv_nsec - tp_before.tv_nsec) / 1e6;
+    fprintf(stderr, "time in bumch of obj constructs%ld\n", duration);
+
+    clock_gettime(CLOCK_REALTIME, &end);
+    duration = (end.tv_sec - start.tv_sec) * 1e3;
+    duration += (end.tv_nsec - start.tv_nsec) / 1e6;
+    fprintf(stderr, "total time in instance comm %ld\n", duration);
 
     return OMPI_SUCCESS;
 }
