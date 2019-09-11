@@ -5,6 +5,8 @@
 !                         All rights reserved.
 ! Copyright (c) 2018      Research Organization for Information Science
 !                         and Technology (RIST).  All rights reserved.
+! Copyright (c) 2019      Triad National Security, LLC. All rights
+!                         reserved.
 ! $COPYRIGHT$
 
 subroutine MPI_Session_get_num_psets_f08(session, npset_names, ierror)
