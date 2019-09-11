@@ -99,13 +99,11 @@
 /* Maximum length of processor names (default is 256) */
 #undef OPAL_MAX_PROCESSOR_NAME
 
-<<<<<<< HEAD
-/* Maximum length of processor names (default is 256) */
+/* Maximum length of processor names (default is 1024) */
 #undef OPAL_MAX_PSET_NAME_LEN
-=======
+
 /* Maximum length of from group tag (default is 256) */
 #undef OPAL_MAX_FROM_GROUP_TAG
->>>>>>> sessions: add MPI_MAX_FROM_GROUP_TAG
 
 /* Whether we have FORTRAN LOGICAL*1 or not */
 #undef OMPI_HAVE_FORTRAN_LOGICAL1
