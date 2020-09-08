@@ -36,5 +36,7 @@ struct opal_thread_t {
     void *t_arg;
     pthread_t t_handle;
 };
+/* Assume that all the other thread implementations use the same struct size.
+ * If it is the case, we can define opal_thread_t here. */
 
 #endif /* OPAL_MCA_THREADS_PTHREADS_THREADS_PTHREADS_THREADS_H */

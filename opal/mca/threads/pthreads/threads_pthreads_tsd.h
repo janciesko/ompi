@@ -31,23 +31,11 @@
 #include <signal.h>
 
 typedef pthread_key_t opal_tsd_key_t;
-
-static inline int opal_tsd_key_delete(opal_tsd_key_t key)
-{
-    int ret = pthread_key_delete(key);
-    return 0 == ret ? OPAL_SUCCESS : OPAL_ERR_IN_ERRNO;
-}
-
-static inline int opal_tsd_set(opal_tsd_key_t key, void *value)
-{
-    int ret = pthread_setspecific(key, value);
-    return 0 == ret ? OPAL_SUCCESS : OPAL_ERR_IN_ERRNO;
-}
-
-static inline int opal_tsd_get(opal_tsd_key_t key, void **valuep)
-{
-    *valuep = pthread_getspecific(key);
-    return OPAL_SUCCESS;
-}
+/* Assume that all the other thread implementations use the same struct size.
+ * If it is the case, we can define opal_thread_t here. */
+OPAL_DECLSPEC int opal_tsd_key_delete(opal_tsd_key_t key);
+OPAL_DECLSPEC int opal_tsd_set(opal_tsd_key_t key, void *value);
+OPAL_DECLSPEC int opal_tsd_get(opal_tsd_key_t key, void **valuep);
+/* They are temporarily implemented in threads_pthreads_mutex.c */
 
 #endif /* OPAL_MCA_THREADS_PTHREADS_THREADS_PTHREADS_TSD_H */

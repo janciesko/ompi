@@ -112,3 +112,63 @@ int ompi_sync_wait_mt(ompi_wait_sync_t *sync)
 
     return (0 == sync->status) ? OPAL_SUCCESS : OPAL_ERROR;
 }
+
+int SYNC_WAIT(ompi_wait_sync_t *sync)
+{
+    return opal_using_threads() ? ompi_sync_wait_mt(sync) : sync_wait_st(sync);
+}
+
+void WAIT_SYNC_RELEASE(ompi_wait_sync_t *sync)
+{
+    if (opal_using_threads()) {
+        while ((sync)->signaling) {
+            continue;
+        }
+        pthread_cond_destroy(&(sync)->condition);
+        pthread_mutex_destroy(&(sync)->lock);
+    }
+}
+
+void WAIT_SYNC_RELEASE_NOWAIT(ompi_wait_sync_t *sync)
+{
+    if (opal_using_threads()) {
+        pthread_cond_destroy(&(sync)->condition);
+        pthread_mutex_destroy(&(sync)->lock);
+    }
+}
+
+void WAIT_SYNC_SIGNAL(ompi_wait_sync_t *sync)
+{
+    if (opal_using_threads()) {
+        pthread_mutex_lock(&(sync->lock));
+        pthread_cond_signal(&sync->condition);
+        pthread_mutex_unlock(&(sync->lock));
+        sync->signaling = false;
+    }
+}
+
+void WAIT_SYNC_SIGNALLED(ompi_wait_sync_t *sync)
+{
+  (sync)->signaling = false;
+}
+
+int sync_wait_st(ompi_wait_sync_t *sync)
+{
+    while (sync->count > 0) {
+        opal_progress();
+    }
+    return sync->status;
+}
+
+void WAIT_SYNC_INIT(ompi_wait_sync_t *sync, int c)
+{
+    (sync)->count = (c);
+    (sync)->next = NULL;
+    (sync)->prev = NULL;
+    (sync)->status = 0;
+    (sync)->signaling = (0 != (c));
+    if (opal_using_threads()) {
+        pthread_cond_init(&(sync)->condition, NULL);
+        pthread_mutex_init(&(sync)->lock, NULL);
+    }
+}

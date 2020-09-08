@@ -63,7 +63,24 @@ struct opal_mutex_t {
 #endif
 
     opal_atomic_lock_t m_lock_atomic;
+    void *data;
 };
+/*
+ * Assume that all the other thread implementations use the same struct size.
+ * If it is the case, we can define opal_thread_t here.
+ * Also, if we prioritize the implementation of "pthreads", we can statically
+ * initialize it by PTHREAD_MUTEX_INITIALIZER etc since Argobots, for
+ * example can refer to dynamically allocated memory region for its
+ * implementation.  This is bad for non-Pthreads-based implementation, though.
+ * If we can use C++'s dynamic initialization, we can fix it.
+ *
+ * Otherwise, we need to use an atomic trick (see Argobots' opal_mutex_create).
+ *
+ * In any case, we can add one "void *data" and to prepare for potential other
+ * thread implementations (otherwise MCA is not generic), which should be the
+ * smallest overhead for the Pthreads implementation.
+ */
+
 OPAL_DECLSPEC OBJ_CLASS_DECLARATION(opal_mutex_t);
 OPAL_DECLSPEC OBJ_CLASS_DECLARATION(opal_recursive_mutex_t);
 
@@ -84,6 +101,7 @@ OPAL_DECLSPEC OBJ_CLASS_DECLARATION(opal_recursive_mutex_t);
         .m_lock_file = NULL,                                            \
         .m_lock_line = 0,                                               \
         .m_lock_atomic = OPAL_ATOMIC_LOCK_INIT,                         \
+        .data = NULL,                                                   \
     }
 #else
 #define OPAL_MUTEX_STATIC_INIT                                          \
@@ -91,6 +109,7 @@ OPAL_DECLSPEC OBJ_CLASS_DECLARATION(opal_recursive_mutex_t);
         .super = OPAL_OBJ_STATIC_INIT(opal_mutex_t),                    \
         .m_lock_pthread = PTHREAD_MUTEX_INITIALIZER,                    \
         .m_lock_atomic = OPAL_ATOMIC_LOCK_INIT,                         \
+        .data = NULL,                                                   \
     }
 #endif
 
@@ -105,6 +124,7 @@ OPAL_DECLSPEC OBJ_CLASS_DECLARATION(opal_recursive_mutex_t);
         .m_lock_file = NULL,                                            \
         .m_lock_line = 0,                                               \
         .m_lock_atomic = OPAL_ATOMIC_LOCK_INIT,                         \
+        .data = (void *)0x1,                                            \
     }
 #else
 #define OPAL_RECURSIVE_MUTEX_STATIC_INIT                                \
@@ -112,6 +132,7 @@ OPAL_DECLSPEC OBJ_CLASS_DECLARATION(opal_recursive_mutex_t);
         .super = OPAL_OBJ_STATIC_INIT(opal_mutex_t),                    \
         .m_lock_pthread = OPAL_PTHREAD_RECURSIVE_MUTEX_INITIALIZER,     \
         .m_lock_atomic = OPAL_ATOMIC_LOCK_INIT,                         \
+        .data = (void *)0x1,                                            \
     }
 #endif
 
@@ -123,43 +144,9 @@ OPAL_DECLSPEC OBJ_CLASS_DECLARATION(opal_recursive_mutex_t);
  *
  ************************************************************************/
 
-static inline int opal_mutex_trylock(opal_mutex_t *m)
-{
-    int ret = pthread_mutex_trylock(&m->m_lock_pthread);
-    if (EDEADLK == ret) {
-#if OPAL_ENABLE_DEBUG
-        opal_output(0, "opal_mutex_trylock() %d",ret);
-#endif
-        return 1;
-    }
-    return 0 == ret ? 0 : 1;
-}
-
-static inline void opal_mutex_lock(opal_mutex_t *m)
-{
-#if OPAL_ENABLE_DEBUG
-    int ret = pthread_mutex_lock(&m->m_lock_pthread);
-    if (EDEADLK == ret) {
-        errno = ret;
-        opal_output(0, "opal_mutex_lock() %d", ret);
-    }
-#else
-    pthread_mutex_lock(&m->m_lock_pthread);
-#endif
-}
-
-static inline void opal_mutex_unlock(opal_mutex_t *m)
-{
-#if OPAL_ENABLE_DEBUG
-    int ret = pthread_mutex_unlock(&m->m_lock_pthread);
-    if (EPERM == ret) {
-        errno = ret;
-        opal_output(0, "opal_mutex_unlock() %d", ret);
-    }
-#else
-    pthread_mutex_unlock(&m->m_lock_pthread);
-#endif
-}
+OPAL_DECLSPEC int opal_mutex_trylock(opal_mutex_t *m);
+OPAL_DECLSPEC void opal_mutex_lock(opal_mutex_t *m);
+OPAL_DECLSPEC void opal_mutex_unlock(opal_mutex_t *m);
 
 /************************************************************************
  *
@@ -167,52 +154,16 @@ static inline void opal_mutex_unlock(opal_mutex_t *m)
  *
  ************************************************************************/
 
-#if OPAL_HAVE_ATOMIC_SPINLOCKS
-
-/************************************************************************
- * Spin Locks
- ************************************************************************/
-
-static inline int opal_mutex_atomic_trylock(opal_mutex_t *m)
-{
-    return opal_atomic_trylock(&m->m_lock_atomic);
-}
-
-static inline void opal_mutex_atomic_lock(opal_mutex_t *m)
-{
-    opal_atomic_lock(&m->m_lock_atomic);
-}
-
-static inline void opal_mutex_atomic_unlock(opal_mutex_t *m)
-{
-    opal_atomic_unlock(&m->m_lock_atomic);
-}
-
-#else
-
-/************************************************************************
- * Standard locking
- ************************************************************************/
-
-static inline int opal_mutex_atomic_trylock(opal_mutex_t *m)
-{
-    return opal_mutex_trylock(m);
-}
-
-static inline void opal_mutex_atomic_lock(opal_mutex_t *m)
-{
-    opal_mutex_lock(m);
-}
-
-static inline void opal_mutex_atomic_unlock(opal_mutex_t *m)
-{
-    opal_mutex_unlock(m);
-}
-
-#endif
+OPAL_DECLSPEC int opal_mutex_atomic_trylock(opal_mutex_t *m);
+OPAL_DECLSPEC void opal_mutex_atomic_lock(opal_mutex_t *m);
+OPAL_DECLSPEC void opal_mutex_atomic_unlock(opal_mutex_t *m);
 
 typedef pthread_cond_t opal_cond_t;
+
 #define OPAL_CONDITION_STATIC_INIT PTHREAD_COND_INITIALIZER
+/* This has the same issue, but so far there is no good solution.  Maybe
+ * Argobots/Qthreads can detect if this is initialize for Pthreads cond.
+ * Fortunately, no module uses this OPAL_CONDITION_STATIC_INIT, so it's okay. */
 
 int opal_cond_init(opal_cond_t *cond);
 int opal_cond_wait(opal_cond_t *cond, opal_mutex_t *lock);

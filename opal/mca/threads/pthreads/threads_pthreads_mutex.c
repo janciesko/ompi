@@ -29,6 +29,7 @@
 #include <pthread.h>
 
 #include "opal/mca/threads/mutex.h"
+#include "opal/mca/threads/tsd.h"
 #include "opal/mca/threads/pthreads/threads_pthreads_mutex.h"
 #include "opal/constants.h"
 
@@ -102,6 +103,103 @@ OBJ_CLASS_INSTANCE(opal_recursive_mutex_t,
                    mca_threads_pthreads_recursive_mutex_constructor,
                    mca_threads_pthreads_recursive_mutex_destructor);
 
+static inline int opal_mutex_trylock_impl(opal_mutex_t *m)
+{
+    int ret = pthread_mutex_trylock(&m->m_lock_pthread);
+    if (EDEADLK == ret) {
+#if OPAL_ENABLE_DEBUG
+        opal_output(0, "opal_mutex_trylock() %d",ret);
+#endif
+        return 1;
+    }
+    return 0 == ret ? 0 : 1;
+}
+
+static inline void opal_mutex_lock_impl(opal_mutex_t *m)
+{
+#if OPAL_ENABLE_DEBUG
+    int ret = pthread_mutex_lock(&m->m_lock_pthread);
+    if (EDEADLK == ret) {
+        errno = ret;
+        opal_output(0, "opal_mutex_lock() %d", ret);
+    }
+#else
+    pthread_mutex_lock(&m->m_lock_pthread);
+#endif
+}
+
+static inline void opal_mutex_unlock_impl(opal_mutex_t *m)
+{
+#if OPAL_ENABLE_DEBUG
+    int ret = pthread_mutex_unlock(&m->m_lock_pthread);
+    if (EPERM == ret) {
+        errno = ret;
+        opal_output(0, "opal_mutex_unlock() %d", ret);
+    }
+#else
+    pthread_mutex_unlock(&m->m_lock_pthread);
+#endif
+}
+
+int opal_mutex_trylock(opal_mutex_t *m)
+{
+    return opal_mutex_trylock_impl(m);
+}
+
+void opal_mutex_lock(opal_mutex_t *m)
+{
+    opal_mutex_lock_impl(m);
+}
+
+void opal_mutex_unlock(opal_mutex_t *m)
+{
+    opal_mutex_unlock_impl(m);
+}
+
+#if OPAL_HAVE_ATOMIC_SPINLOCKS
+
+/************************************************************************
+ * Spin Locks
+ ************************************************************************/
+
+int opal_mutex_atomic_trylock(opal_mutex_t *m)
+{
+    return opal_atomic_trylock(&m->m_lock_atomic);
+}
+
+void opal_mutex_atomic_lock(opal_mutex_t *m)
+{
+    opal_atomic_lock(&m->m_lock_atomic);
+}
+
+void opal_mutex_atomic_unlock(opal_mutex_t *m)
+{
+    opal_atomic_unlock(&m->m_lock_atomic);
+}
+
+#else
+
+/************************************************************************
+ * Standard locking
+ ************************************************************************/
+
+int opal_mutex_atomic_trylock(opal_mutex_t *m)
+{
+    return opal_mutex_trylock_impl(m);
+}
+
+void opal_mutex_atomic_lock(opal_mutex_t *m)
+{
+    opal_mutex_lock_impl(m);
+}
+
+void opal_mutex_atomic_unlock(opal_mutex_t *m)
+{
+    opal_mutex_unlock_impl(m);
+}
+
+#endif
+
 int opal_cond_init(opal_cond_t *cond)
 {
     int ret = pthread_cond_init(cond, NULL);
@@ -130,4 +228,22 @@ int opal_cond_destroy(opal_cond_t *cond)
 {
     int ret = pthread_cond_destroy(cond);
     return 0 == ret ? OPAL_SUCCESS : OPAL_ERR_IN_ERRNO;
+}
+
+int opal_tsd_key_delete(opal_tsd_key_t key)
+{
+    int ret = pthread_key_delete(key);
+    return 0 == ret ? OPAL_SUCCESS : OPAL_ERR_IN_ERRNO;
+}
+
+int opal_tsd_set(opal_tsd_key_t key, void *value)
+{
+    int ret = pthread_setspecific(key, value);
+    return 0 == ret ? OPAL_SUCCESS : OPAL_ERR_IN_ERRNO;
+}
+
+int opal_tsd_get(opal_tsd_key_t key, void **valuep)
+{
+    *valuep = pthread_getspecific(key);
+    return OPAL_SUCCESS;
 }
